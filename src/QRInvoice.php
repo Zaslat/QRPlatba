@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the library "QRPlatba".
+ * This file is part of the library "QRInvoice".
  *
  * (c) Dennis Fridrich <fridrich.dennis@gmail.com>
  *
@@ -9,21 +9,26 @@
  * please view LICENSE.
  */
 
-namespace Defr\QRPlatba;
+namespace Defr\QRInvoice;
 
-use Endroid\QrCode\QrCode;
+use chillerlan\QRCode\{QRCode, QROptions};
 
 /**
  * Knihovna pro generování QR plateb v PHP.
  *
  * @see https://raw.githubusercontent.com/snoblucha/QRPlatba/master/QRPlatba.php
  */
-class QRPlatba
+class QRInvoice
 {
     /**
      * Verze QR formátu QR Platby.
      */
     const VERSION = '1.0';
+
+    /**
+     * Verze QR formátu QR Faktury.
+     */
+    const QRF_VERSION = '1.0';
 
     /**
      * @var array
@@ -90,8 +95,62 @@ class QRPlatba
         // Max. 140 znaků. -  URL, které je možno využít pro vlastní potřebu
     ];
 
+    // Implements only ['ID', 'DD', 'MSG'] keys
     /**
-     * Kontruktor nové platby.
+     * @var array keys for QR Invoice
+     */
+    private $keys_QRF = [
+        'ID' => null, // Max. 40 - znaků oznaceni dokladu   !povinny
+        'DD' => null, // Max. 8 znaků - datum vystaveni     !povinny
+        'AM' => null, //Max. 18 znaků - Desetinné číslo Výše částky k uhrade.  !povinny
+        'TP' => null, // Právě 1 znaky - typ danoveho plneni
+        'TD' => null, // Právě 1 znaků - typ dokladu
+        'SA' => null, // Právě 1 znaků - zda fa obsahuje zuctovani zaloh
+        'MSG' => null, // Max. 40 znaků - popis predmetu plneni
+        'ON' => null, // Max. 20 znaků - oznaceni objednavky
+        'VS' => null, // Max. 10 znaků - Celé číslo - variabilni symbol
+        'VII' => null, // Max. 14 znaků - alfanum. znaky DIC vystavce
+        'INI' => null, // Max. 14 znaků - alfanum. znaky ICO vystavce
+        'VIR' => null, // Max. 14 znaků - alfanum. znaky DIC prijemce
+        'INR' => null, // Max. 14 znaků - alfanum. znaky ICO prijemce
+        'DUZP' => null, // Právě. 8 znaků - datum uskutecneni zdan. plneni
+        'DPPD' => null, // Právě. 8 znaků - datum povinnosti priznat dan
+        'DT' => null, // Právě. 8 znaků - datum splatnosti
+        'TB0' => null, // Max. 18 znaků - Desetinné číslo Zaklad dane v zakladni sazbe DPH
+        'T0' => null, // Max. 18 znaků - Desetinné číslo Dan v zakladni sazbe DPH
+        'TB1' => null, // Max. 18 znaků - Desetinné číslo Zaklad dane v prvni snizene sazbe DPH 15%
+        'T1' => null, // Max. 18 znaků - Desetinné číslo Dan v prvni snizene sazbe DPH
+        'TB2' => null, // Max. 18 znaků - Desetinné číslo Zaklad dane v druhe snizene sazbe DPH 10%
+        'T2' => null, // Max. 18 znaků - Desetinné číslo Dan v prvni druhe sazbe DPH
+        'NTB' => null, // Max. 18 znaků - Desetinné číslo Osvobozena plneni
+        'CC' => null, // Právě 3 znaky - Měna platby.
+        'FX' => null, // Max. 18 znaků - Desetinné číslo Kurz cizi meny
+        'FXA' => null, // Max. 5 znaků - Cele číslo Pocet jednotek cizi meny
+        'ACC' => null, // Max. 46 - znaků IBAN, BIC Identifikace protistrany
+        'CRC32' => null, // Právě 8 znaků - Kontrolní součet - HEX.
+        'X-SW' => null, // Max. 30 - znaků oznaceni SW
+        'X-URL' => null, // Max. 70 - znaků ziskani faktury z online uloziste
+    ];
+
+    /**
+     * zda kod obsahuje i QRPlatbu
+     */
+    private $isQrInvoice = true;
+
+    /**
+     * velikost kazdeho ctverce v QR kodu v px pro png
+     */
+    private $QRSquareSize = 4;
+
+    /**
+     * velikost SVG objektu v px
+     * @var null $svgSize
+     */
+    private $svgSize = null;
+
+
+    /**
+     * Konstruktor nové platby.
      *
      * @param null $account
      * @param null $amount
@@ -122,7 +181,7 @@ class QRPlatba
      * @param null $amount
      * @param null $variable
      *
-     * @return QRPlatba
+     * @return QRInvoice
      * @throws \InvalidArgumentException
      */
     public static function create($account = null, $amount = null, $variable = null)
@@ -139,7 +198,23 @@ class QRPlatba
      */
     public function setAccount($account)
     {
+
         $this->keys['ACC'] = self::accountToIban($account);
+
+        return $this;
+    }
+
+    /**
+     * Set IBAN number.
+     *
+     * @param $iban
+     *
+     * @return $this
+     */
+    public function setAccountIBAN($iban)
+    {
+
+        $this->keys['ACC'] = $iban;
 
         return $this;
     }
@@ -181,7 +256,7 @@ class QRPlatba
      */
     public function setConstantSymbol($cs)
     {
-        $this->keys['X-CS'] = $cs;
+        $this->keys['X-KS'] = $cs;
 
         return $this;
     }
@@ -191,14 +266,14 @@ class QRPlatba
      *
      * @param $ss
      *
-     * @throws QRPlatbaException
+     * @throws QRInvoiceException
      *
      * @return $this
      */
     public function setSpecificSymbol($ss)
     {
         if (mb_strlen($ss) > 10) {
-            throw new QRPlatbaException('Specific symbol is higher than 10 chars');
+            throw new QRInvoiceException('Specific symbol is higher than 10 chars');
         }
         $this->keys['X-SS'] = $ss;
 
@@ -216,22 +291,26 @@ class QRPlatba
     {
         $this->keys['MSG'] = mb_substr($this->stripDiacritics($msg), 0, 60);
 
+        if($this->isQrInvoice){
+            $this->setQrInvoiceMessage($msg);
+        }
+
         return $this;
     }
 
-	/**
-	 * Nastavení jména příjemce. Z řetězce bude odstraněna diaktirika.
-	 *
-	 * @param $name
-	 *
-	 * @return $this
-	 */
-	public function setRecipientName($name)
-	{
-		$this->keys['RN'] = mb_substr($this->stripDiacritics($name), 0, 35);
+    /**
+     * Nastavení jména příjemce. Z řetězce bude odstraněna diaktirika.
+     *
+     * @param $name
+     *
+     * @return $this
+     */
+    public function setRecipientName($name)
+    {
+        $this->keys['RN'] = mb_substr($this->stripDiacritics($name, false), 0, 35);
 
-		return $this;
-	}
+        return $this;
+    }
 
     /**
      * Nastavení data úhrady.
@@ -264,8 +343,85 @@ class QRPlatba
         return $this;
     }
 
+    // ---------------------- QRInvoice + RQPay -----------------------------
+
     /**
-     * Metoda vrátí QR Platbu jako textový řetězec.
+     * Nastaveni generovani QRFaktury do QRPlatby
+     *
+     * @param bool $isQrInvoice
+     * @return $this
+     */
+    public function setGenerateQRInvoice(bool $isQrInvoice)
+    {
+        $this->isQrInvoice = $isQrInvoice;
+
+        return $this;
+    }
+
+    /**
+     * Nastaveni data vystaveni faktury pro QRFakturu
+     *
+     * @param \DateTime $date
+     * @return $this
+     */
+    public function setInvoiceDate (\DateTime  $date)
+    {
+        $this->keys_QRF['DD'] = $date->format('Ymd');
+
+        return $this;
+    }
+
+    /**
+     * Nastaveni ID faktury pro QRFaktruu
+     *
+     * @param $id
+     * @return $this
+     * @throws QRInvoiceException
+     */
+    public function setIdQrInvoice($id)
+    {
+        if (mb_strlen($id) > 40) {
+            throw new QRInvoiceException('Invoice ID is higher then 40 chars');
+        }
+        else {
+            $this->keys_QRF['ID'] = $id;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Nastavení zprávy pro příjemce pro QRFakturu. Z řetězce bude odstraněna diaktirika. Ma rozdilnou delku retezce
+     *
+     * @param $msg
+     *
+     * @return $this
+     */
+    public function setQrInvoiceMessage($msg)
+    {
+        $this->keys_QRF['MSG'] = mb_substr($this->stripDiacritics($msg), 0, 40);
+
+        return $this;
+    }
+
+    /**
+     * Nastavuje velikost (width/height) SVG objektu
+     *
+     * @param int|null $size
+     */
+    public function setSvgDimension(?int $size)
+    {
+        if(!is_null($size)){
+            $this->svgSize = $size;
+        }
+
+        return $this;
+    }
+
+    // ---------------------- QRInvoice -----------------------------
+
+    /**
+     * Metoda vrátí QR Platbu + QR Fakturu jako textový řetězec.
      *
      * @return string
      */
@@ -279,63 +435,61 @@ class QRPlatba
             $chunks[] = $key.':'.$value;
         }
 
-        return implode('*', $chunks);
+        $QRP_string = implode('*', $chunks);
+
+        if(!$this->isQrInvoice) {
+            return $QRP_string;
+        }
+        else {
+
+            $chunks_QRF = array('SID', self::QRF_VERSION);
+            foreach ($this->keys_QRF as $key => $value) {
+                if ($value === null) {
+                    continue;
+                }
+                $chunks_QRF[] = $key.":".$value;
+            }
+            $QRF_string = implode('%2A', $chunks_QRF);
+
+            return $QRP_string . '*X-INV:'. $QRF_string;
+        }
     }
 
-    /**
-     * Metoda vrátí QR kód jako HTML tag, případně jako data-uri.
-     *
-     * @param bool $htmlTag
-     * @param int  $size
-     *
-     * @return string
-     */
-    public function getQRCodeImage($htmlTag = true, $size = 300)
-    {
-        $qrCode = $this->getQRCodeInstance($size);
-        $data = $qrCode->writeDataUri();
-
-        return $htmlTag
-            ? sprintf('<img src="%s" alt="QR Platba">', $data)
-            : $data;
-    }
-
-    /**
-     * Uložení QR kódu do souboru.
-     *
-     * @param null|string $filename File name of the QR Code
-     * @param null|string $format Format of the file (png, jpeg, jpg, gif, wbmp)
-     * @param int $size
-     *
-     * @return QRPlatba
-     * @throws \Endroid\QrCode\Exception\UnsupportedExtensionException
-     */
-    public function saveQRCodeImage($filename = null, $format = 'png', $size = 300)
-    {
-        $qrCode = $this->getQRCodeInstance($size);
-        $qrCode->setWriterByExtension($format);
-        $qrCode->writeFile($filename);
-
-        return $this;
-    }
 
     /**
      * Instance třídy QrCode pro libovolné úpravy (barevnost, atd.).
      *
-     * @param int $size
+     * @param string $format
+     * @param bool $rawFormat
      *
      * @return QrCode
      */
-    public function getQRCodeInstance($size = 300)
+    public function getQRCode(string $format = 'svg', bool $isBase64Encoded = false)
     {
-        $qrCode = new QrCode();
-        $qrCode
-            ->setText((string) $this)
-            ->setSize($size)
-            ->setForegroundColor(['r' => 0, 'g' => 0, 'b' => 0, 'a' => 0])
-            ->setBackgroundColor(['r' => 255, 'g' => 255, 'b' => 255, 'a' => 0]);
 
-        return $qrCode;
+        $qrOptinsData = array (
+            'version'           => QRCode::VERSION_AUTO,
+            'eccLevel'          => QRCode::ECC_L,
+            'imageBase64'       => $isBase64Encoded,
+        );
+
+        switch ($format) {
+            case "png":
+                $qrOptinsData['outputType'] = QRCode::OUTPUT_IMAGE_PNG;
+                $qrOptinsData['scale'] = $this->QRSquareSize;
+
+                break;
+            default:
+                $qrOptinsData['outputType'] = QRCode::OUTPUT_MARKUP_SVG;
+                $qrOptinsData['svgDefs'] = ((!is_null($this->svgSize)) ? '<style>rect{shape-rendering:crispEdges} svg{width: '.$this->svgSize.'px !important;height: '.$this->svgSize.'px !important;}</style>' : '');
+        }
+
+        $qrOptions = new QROptions($qrOptinsData);
+
+        $qrcode = new QRCode($qrOptions);
+        $data = $qrcode->render((string) $this);
+
+        return $data;
     }
 
     /**
@@ -381,29 +535,21 @@ class QRPlatba
      * Odstranění diaktitiky.
      *
      * @param $string
+     * @param bool $is_uppercase
      *
      * @return mixed
      */
-    private function stripDiacritics($string)
+    private function stripDiacritics($string, $is_uppercase = true)
     {
-        $string = str_replace(
-            [
-                'ě', 'š', 'č', 'ř', 'ž', 'ý', 'á', 'í', 'é', 'ú', 'ů',
-                'ó', 'ť', 'ď', 'ľ', 'ň', 'ŕ', 'â', 'ă', 'ä', 'ĺ', 'ć',
-                'ç', 'ę', 'ë', 'î', 'ń', 'ô', 'ő', 'ö', 'ů', 'ű', 'ü',
-                'Ě', 'Š', 'Č', 'Ř', 'Ž', 'Ý', 'Á', 'Í', 'É', 'Ú', 'Ů',
-                'Ó', 'Ť', 'Ď', 'Ľ', 'Ň', 'Ä', 'Ć', 'Ë', 'Ö', 'Ü'
-            ],
-            [
-                'e', 's', 'c', 'r', 'z', 'y', 'a', 'i', 'e', 'u', 'u',
-                'o', 't', 'd', 'l', 'n', 'a', 'a', 'a', 'a', 'a', 'a',
-                'c', 'e', 'e', 'i', 'n', 'o', 'o', 'o', 'u', 'u', 'u',
-                'E', 'S', 'C', 'R', 'Z', 'Y', 'A', 'I', 'E', 'U', 'U',
-                'O', 'T', 'D', 'L', 'N', 'A', 'C', 'E', 'O', 'U'
-            ],
-            $string
-        );
 
-        return $string;
+        setlocale(LC_CTYPE, 'cs_CZ');
+        $clean_string = iconv('UTF-8', 'ASCII//TRANSLIT', $string);
+        $clean_string = str_replace(array('\'', '"', '^'), '', $clean_string);
+
+        if($is_uppercase === true){
+            $clean_string = strtoupper($clean_string);
+        }
+
+        return $clean_string;
     }
 }

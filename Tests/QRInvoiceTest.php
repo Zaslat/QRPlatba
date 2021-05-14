@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the library "QRPlatba".
+ * This file is part of the library "QRInvoice".
  *
  * (c) Dennis Fridrich <fridrich.dennis@gmail.com>
  *
@@ -9,26 +9,26 @@
  * please view LICENSE.
  */
 
-use Defr\QRPlatba\QRPlatba;
+use Defr\QRInvoice\QRInvoice;
 
 /**
- * Class QRPlatbaTest.
+ * Class QRInvoiceTest.
  */
-class QRPlatbaTest extends PHPUnit_Framework_TestCase
+class QRInvoiceTest extends PHPUnit_Framework_TestCase
 {
     /**
      * @expectedException \InvalidArgumentException
      */
     public function testFakeCurrencyString()
     {
-        QRPlatba::create('12-3456789012/0100', '1234.56', '2016001234')
+        QRInvoice::create('12-3456789012/0100', '1234.56', '2016001234')
             ->setMessage('Düakrítičs')
             ->setCurrency('FAKE');
     }
 
     public function testCzkString()
     {
-        $string = QRPlatba::create('12-3456789012/0100', '1234.56', '2016001234')
+        $string = QRInvoice::create('12-3456789012/0100', '1234.56', '2016001234')
             ->setMessage('Düakrítičs');
 
         $this->assertSame(
@@ -36,7 +36,7 @@ class QRPlatbaTest extends PHPUnit_Framework_TestCase
             $string->__toString()
         );
 
-        $string = QRPlatba::create('12-3456789012/0100', '1234.56', '2016001234')
+        $string = QRInvoice::create('12-3456789012/0100', '1234.56', '2016001234')
             ->setMessage('Düakrítičs')
             ->setCurrency('CZK');
 
@@ -48,7 +48,7 @@ class QRPlatbaTest extends PHPUnit_Framework_TestCase
 
     public function testEurString()
     {
-        $string = QRPlatba::create('12-3456789012/0100', '1234.56', '2016001234')
+        $string = QRInvoice::create('12-3456789012/0100', '1234.56', '2016001234')
             ->setMessage('Düakrítičs')
             ->setCurrency('EUR');
 
@@ -58,23 +58,14 @@ class QRPlatbaTest extends PHPUnit_Framework_TestCase
         );
     }
 
-    public function testQrCodeInstante()
-    {
-        $qrPlatba = QRPlatba::create('12-3456789012/0100', 987.60)
-            ->setMessage('QR platba je parádní!')
-            ->getQRCodeInstance();
-
-        $this->assertInstanceOf('Endroid\\QrCode\\QrCode', $qrPlatba);
-    }
-
     public function testRecipientName()
     {
-	    $string = QRPlatba::create('12-3456789012/0100', '1234.56', '2016001234')
-		    ->setRecipientName('Düakrítičs');
+        $string = QRInvoice::create('12-3456789012/0100', '1234.56', '2016001234')
+            ->setRecipientName('Düakrítičs');
 
-	    $this->assertSame(
-		    'SPD*1.0*ACC:CZ0301000000123456789012*AM:1234.56*CC:CZK*X-VS:2016001234*RN:Duakritics',
-		    $string->__toString()
-	    );
+        $this->assertSame(
+            'SPD*1.0*ACC:CZ0301000000123456789012*AM:1234.56*CC:CZK*X-VS:2016001234*RN:Duakritics',
+            $string->__toString()
+        );
     }
 }

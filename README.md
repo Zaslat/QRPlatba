@@ -12,10 +12,10 @@ naskenovat. Nově lze použít i jiné měny než CZK a to pomocí metody ```set
 Tato knihovna umožňuje:
 
 - zobrazení obrázku v ```<img>``` tagu, který obsahuje v ```src``` rovnou data-uri s QR kódem, takže vygenerovaný
-obrázek tak není třeba ukládat na server (```$qrPlatba->getQRCodeImage()```)
+  obrázek tak není třeba ukládat na server (```$qrPlatba->getQRCodeImage()```)
 - uložení obrázku s QR kódem (```$qrPlatba->saveQRCodeImage()```)
 - získání data-uri (```$qrPlatba->getQRCodeInstance()->getDataUri()```)
-- získání instance objektu [QrCode](https://github.com/endroid/QrCode) (```$qrPlatba->getQRCodeInstance()```) 
+- získání instance objektu [QrCode](https://github.com/endroid/QrCode) (```$qrPlatba->getQRCodeInstance()```)
 
 QRPlatbu v současné době podporují tyto banky:
 Air Bank, Česká spořitelna, ČSOB, Equa bank, Era, Fio banka, Komerční banka, mBank, Raiffeisenbank, ZUNO.
@@ -23,9 +23,12 @@ Air Bank, Česká spořitelna, ČSOB, Equa bank, Era, Fio banka, Komerční bank
 
 Podporuje PHP 5.6 až 7.2.
 
+**UW Richard modifikovaná verze podporuje pouze >=7.2**
+
 ## Instalace pomocí Composeru
 
 `composer require dfridrich/qr-platba`
+`composer require uw-richard/qr-platba` pro upravenou verzi pro endroid/qr-code:^3 a PHP >= 7.2
 
 ## Příklad
 
@@ -34,19 +37,21 @@ Podporuje PHP 5.6 až 7.2.
 
 require __DIR__ . '/vendor/autoload.php';
 
-use Defr\QRPlatba\QRPlatba;
+use Defr\QRPlatba\QRInvoice;
 
-$qrPlatba = new QRPlatba();
+$qrInvoice = new QRInvoice();
 
-$qrPlatba->setAccount('12-3456789012/0100')
+$qrInvoice->setAccountIBAN('Valid-IBAN-account')
+    ->setGenerateQRInvoice(true) // Generuje QR kód pro QR Platbu i QR Fakturu
     ->setVariableSymbol('2016001234')
     ->setMessage('Toto je první QR platba.')
     ->setSpecificSymbol('0308')
     ->setSpecificSymbol('1234')
     ->setCurrency('CZK') // Výchozí je CZK, lze zadat jakýkoli ISO kód měny
-    ->setDueDate(new \DateTime());
+    ->setDueDate(new \DateTime())
+    ->setSvgDimension(190); // Velikost <svg> objektu.
 
-echo $qrPlatba->getQRCodeImage(); // Zobrazí <img> tag s kódem, viz níže  
+echo $qrInvoice->getQRCodeImage(); // Zobrazí <img> tag s kódem, viz níže  
 ```
 
 ![Ukázka](qrcode.png)
@@ -54,7 +59,7 @@ echo $qrPlatba->getQRCodeImage(); // Zobrazí <img> tag s kódem, viz níže
 Lze použít i jednodušší zápis:
 
 ```php
-echo QRPlatba::create('12-3456789012/0100', 987.60)
+echo QRInvoice::create('12-3456789012/0100', 987.60)
     ->setMessage('QR platba je parádní!')
     ->getQRCodeImage();
 ```
@@ -64,13 +69,13 @@ echo QRPlatba::create('12-3456789012/0100', 987.60)
 Uložení do souboru
 ```php
 // Uloží png o velikosti 100x100 px
-$qrPlatba->saveQRCodeImage("qrcode.png", "png", 100);
+$qrInvoice->saveQRCodeImage("qrcode.png", "png", 100);
 
 // Uloží svg o velikosti 100x100 px
-$qrPlatba->saveQRCodeImage("qrcode.svg", "svg", 100);
+$qrInvoice->saveQRCodeImage("qrcode.svg", "svg", 100);
 ```
 
-Aktuální možné formáty jsou: 
+Aktuální možné formáty jsou:
 * Png
 * Svg
 * Eps
@@ -81,7 +86,7 @@ Pro další je potřeba dopsat vlastní Writter
 Zobrazení data-uri
 ```php
 // data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFAAQMAAAD3XjfpAAAA...
-echo $qrPlatba->getQRCodeInstance()->writeDataUri();
+echo $qrInvoice->getQRCodeInstance()->writeDataUri();
 ```
 
 ## Odkazy

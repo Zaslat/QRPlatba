@@ -1,11 +1,12 @@
 {
-    "name": "dfridrich/qr-platba",
+    "name": "zaslat/qr-invoice",
     "type": "library",
-    "description": "Generování QR plateb v PHP.",
+    "description": "Generate QR payment/invoice in PHP.",
     "keywords": [
         "php",
         "qr",
-        "platba"
+        "payment",
+        "invoice"
     ],
     "homepage": "https://github.com/dfridrich/QRPlatba",
     "license": "MIT",
@@ -13,15 +14,22 @@
         {
             "name": "Dennis Fridrich",
             "email": "fridrich.dennis@gmail.com"
+        },
+        {
+            "name": "Jiri Zejda",
+            "email": "zejda@zaslat.cz",
+            "homepage": "https://zaslat.cz",
+            "role": "Developer"
         }
     ],
     "require": {
-        "php": ">=5.6.0",
-        "endroid/qr-code": "^2.0"
+        "php": ">=7.2",
+        "chillerlan/php-qrcode": "4.3.0",
+        "ext-iconv": "*"
     },
     "autoload": {
         "psr-4": {
-            "Defr\\QRPlatba\\": "src/"
+            "Defr\\QRInvoice\\": "src/"
         }
     },
     "require-dev": {
